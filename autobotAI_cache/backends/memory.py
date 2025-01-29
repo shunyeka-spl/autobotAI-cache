@@ -1,20 +1,43 @@
-from typing import Dict
+import threading
+import time
+from typing import Dict, Any
 from autobotAI_cache.backends.base import BaseBackend
 from autobotAI_cache.core.exceptions import CacheMissError
 
 
 class MemoryBackend(BaseBackend):
-    """
-    Simple in-memory cache backend
-    """
-
+    """Thread-safe in-memory cache backend"""
     def __init__(self):
-        self._cache: Dict[str, bytes] = {}
+        self._store: Dict[str, Any] = {}
+        self._lock = threading.RLock()
+        self._expire_times: Dict[str, float] = {}
 
-    def get(self, key: str) -> bytes:
-        if key in self._cache:
-            return self._cache[key]
-        raise CacheMissError(f"Key '{key}' not found")
+    def get(self, key: str):
+        with self._lock:
+            if key not in self._store:
+                raise CacheMissError(f"Key '{key}' not found")
 
-    def set(self, key: str, value: bytes, ttl: int = None) -> None:
-        self._cache[key] = value
+            expire_time = self._expire_times.get(key)
+            if expire_time and time.time() > expire_time:
+                self.delete(key)
+                raise CacheMissError(f"Key '{key}' expired")
+
+            return self._store[key]
+
+    def set(self, key: str, value, ttl: int = None):
+        with self._lock:
+            self._store[key] = value
+            if ttl is not None:
+                self._expire_times[key] = time.time() + ttl
+            else:
+                self._expire_times.pop(key, None)
+
+    def delete(self, key: str):
+        with self._lock:
+            self._store.pop(key, None)
+            self._expire_times.pop(key, None)
+
+    def clear(self):
+        with self._lock:
+            self._store.clear()
+            self._expire_times.clear()
