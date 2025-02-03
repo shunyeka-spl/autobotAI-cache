@@ -7,20 +7,23 @@ from autobotAI_cache.utils.serializers import serialize, deserialize
 
 
 def memoize(
-    ctx: Any = None,
+    ctx: Any = None,  # Request Context, Specific to AutobotAI use case
     ttl: Optional[int] = None,
     key_prefix: Optional[str] = None,
     ignore_args: Optional[List[str]] = None,
     fail_silently: bool = False,
+    verbose: bool = False,
 ):
     """
     Memoization decorator that caches function results using configured backend
-    
+
     :param ctx: cache context
-    :param ttl: Time-to-live in seconds (overrides default)
+    :param ttl: Time-to-live in seconds (default 300) # 5 minutes
+    :param capacity: LRU cache Size, (default None)
     :param key_prefix: Custom prefix for cache keys
     :param ignore_args: List of argument names to exclude from cache key
     :param fail_silently: Return uncached result on backend errors if True
+    :param verbose: verbose logs
     """
 
     def decorator(func):
@@ -35,14 +38,21 @@ def memoize(
                 ignore_args=ignore_args,
             )
 
+            if verbose:
+                print(f"Cache key: {cache_key}")
+
             # Attempt to retrieve cached value
             try:
                 cached = settings.backend.get(cache_key)
                 if cached is not None:
+                    if verbose:
+                        print(f"Cache hit for key: {cache_key}")
                     return deserialize(cached, settings.SERIALIZER)
             except CacheMissError:
                 pass
             except Exception as e:
+                if verbose:
+                    print(f"Cache error: {e}")
                 if not fail_silently:
                     raise CacheBackendError from e
 
@@ -51,10 +61,18 @@ def memoize(
 
             # Store result in cache
             try:
+
+                if verbose:
+                    print(f"Cache miss for key: {cache_key}")
+                    print(f"Storing result in cache for key: {cache_key}")
+
                 serialized = serialize(result, settings.SERIALIZER)
                 effective_ttl = ttl if ttl is not None else settings.DEFAULT_TTL
                 settings.backend.set(cache_key, serialized, ttl=effective_ttl)
+                
             except Exception as e:
+                if verbose:
+                    print(f"Cache error: {e}")
                 if not fail_silently:
                     raise CacheBackendError from e
 
