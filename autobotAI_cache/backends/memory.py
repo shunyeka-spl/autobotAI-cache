@@ -7,10 +7,11 @@ from autobotAI_cache.core.exceptions import CacheMissError
 
 class MemoryBackend(BaseBackend):
     """Thread-safe in-memory cache backend"""
-    def __init__(self):
+    def __init__(self, max_entries = None):
         self._store: Dict[str, Any] = {}
         self._lock = threading.RLock()
         self._expire_times: Dict[str, float] = {}
+        self.max_entries = max_entries
 
     def get(self, key: str):
         with self._lock:
@@ -26,6 +27,8 @@ class MemoryBackend(BaseBackend):
 
     def set(self, key: str, value, ttl: int = None):
         with self._lock:
+            if self.max_entries and len(self._store) >= self.max_entries:
+                self._store.pop(next(iter(self._store)))
             self._store[key] = value
             if ttl is not None:
                 self._expire_times[key] = time.time() + ttl

@@ -13,21 +13,24 @@ def generate_cache_key(func, args, kwargs, key_prefix=None, ignore_args=None):
     :param ignore_args: List of argument names to exclude from key generation
     :return: The generated cache key
     """
+    ignore_args = set(ignore_args or [])
+    sig = inspect.signature(func)
+    bound = sig.bind(*args, **kwargs)
+    bound.apply_defaults()
 
-    # Extract function name and module
-    func_name = func.__name__
-    module_name = inspect.getmodule(func).__name__
+    # Filter out ignored arguments
+    filtered_args = {
+        name: value
+        for name, value in bound.arguments.items()
+        if name not in ignore_args
+    }
 
-    # Prepare argument string
-    arg_str = ""
-    for i, arg in enumerate(args):
-        arg_str += f"{i}={arg}_"
+    # Ensure consistent ordering for keyword arguments
+    sorted_items = sorted(filtered_args.items())
+    arg_str = "_".join(f"{name}={repr(value)}" for name, value in sorted_items)
 
-    for key, value in kwargs.items():
-        if ignore_args and key in ignore_args:
-            continue
-        arg_str += f"{key}={value}_"
+    # Build a fully qualified function name (module and qualified name)
+    func_qualname = f"{func.__module__}.{func.__qualname__}"
 
-    # Combine elements and hash
-    key_str = f"{key_prefix or ''}{module_name}:{func_name}:{arg_str}"
+    key_str = f"{key_prefix or ''}{func_qualname}:{arg_str}"
     return hashlib.sha256(key_str.encode()).hexdigest()
