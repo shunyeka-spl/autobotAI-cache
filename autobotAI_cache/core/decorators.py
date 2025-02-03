@@ -1,5 +1,5 @@
 import functools
-from typing import Optional, List
+from typing import Any, Optional, List
 from autobotAI_cache.core.config import settings
 from autobotAI_cache.core.exceptions import CacheBackendError, CacheMissError
 from autobotAI_cache.utils.keygen import generate_cache_key
@@ -7,6 +7,7 @@ from autobotAI_cache.utils.serializers import serialize, deserialize
 
 
 def memoize(
+    ctx: Any = None,
     ttl: Optional[int] = None,
     key_prefix: Optional[str] = None,
     ignore_args: Optional[List[str]] = None,
@@ -14,7 +15,8 @@ def memoize(
 ):
     """
     Memoization decorator that caches function results using configured backend
-
+    
+    :param ctx: cache context
     :param ttl: Time-to-live in seconds (overrides default)
     :param key_prefix: Custom prefix for cache keys
     :param ignore_args: List of argument names to exclude from cache key
