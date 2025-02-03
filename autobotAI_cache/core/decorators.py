@@ -1,17 +1,18 @@
 import functools
-from typing import Any, Optional, List
+from typing import Optional, List
 from autobotAI_cache.core.config import settings
 from autobotAI_cache.core.exceptions import CacheBackendError, CacheMissError
+from autobotAI_cache.core.models import CacheScope
 from autobotAI_cache.utils.keygen import generate_cache_key
 from autobotAI_cache.utils.serializers import serialize, deserialize
 
 
 def memoize(
-    ctx: Any = None,  # Request Context, Specific to AutobotAI use case
     ttl: Optional[int] = None,
     key_prefix: Optional[str] = None,
     ignore_args: Optional[List[str]] = None,
     fail_silently: bool = False,
+    scope: Optional[CacheScope] = CacheScope.GLOBAL.value,
     verbose: bool = False,
 ):
     """
@@ -34,6 +35,7 @@ def memoize(
                 func=func,
                 args=args,
                 kwargs=kwargs,
+                scope=scope,
                 key_prefix=key_prefix,
                 ignore_args=ignore_args,
             )

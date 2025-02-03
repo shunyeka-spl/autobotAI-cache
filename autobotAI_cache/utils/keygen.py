@@ -2,7 +2,7 @@ import hashlib
 import inspect
 
 
-def generate_cache_key(func, args, kwargs, key_prefix=None, ignore_args=None):
+def generate_cache_key(func, args, kwargs, scope, key_prefix=None, ignore_args=None):
     """
     Generates a unique cache key based on the function, arguments, and keyword arguments.
 
@@ -18,11 +18,18 @@ def generate_cache_key(func, args, kwargs, key_prefix=None, ignore_args=None):
     bound = sig.bind(*args, **kwargs)
     bound.apply_defaults()
 
+    # Handle self/cls intelligently
+    key_components = []
+    if "self" in bound.arguments and "self" not in ignore_args:
+        key_components.append(f"self_id={id(bound.arguments['self'])}")
+    elif "cls" in bound.arguments and "cls" not in ignore_args:
+        key_components.append(f"cls_name={bound.arguments['cls'].__name__}")
+
     # Filter out ignored arguments
     filtered_args = {
         name: value
         for name, value in bound.arguments.items()
-        if name not in ignore_args
+        if name not in ignore_args and name not in ["self", "cls"]
     }
 
     # Ensure consistent ordering for keyword arguments
