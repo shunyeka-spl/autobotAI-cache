@@ -42,11 +42,9 @@ class TestInMemory:  # Use a class to group related tests
         settings.backend.clear()
 
     def test_capacity(self):
-        settings.configure(**{
-            "BACKEND_OPTIONS": {
-                "max_entries": 2
-            }
-        })
+        settings.configure(BACKEND="memory",BACKEND_OPTIONS={
+            "max_entries": 2
+        }, DEFAULT_TTL=1200)
         @timeit_return
         @memoize()
         def my_function(x):
