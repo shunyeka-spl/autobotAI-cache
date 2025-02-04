@@ -18,12 +18,11 @@ def memoize(
     """
     Memoization decorator that caches function results using configured backend
 
-    :param ctx: cache context
     :param ttl: Time-to-live in seconds (default 300) # 5 minutes
-    :param capacity: LRU cache Size, (default None)
     :param key_prefix: Custom prefix for cache keys
     :param ignore_args: List of argument names to exclude from cache key
     :param fail_silently: Return uncached result on backend errors if True
+    :param scope: CacheScope, i.e. CacheScope.GLOBAL.value
     :param verbose: verbose logs
     """
 
