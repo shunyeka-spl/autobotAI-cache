@@ -18,7 +18,9 @@ def generate_cache_key(func, args, kwargs, scope=CacheScope.GLOBAL.value, key_pr
     :param ignore_args: List of argument names to exclude from key generation
     :return: The generated cache key
     """
+    # Preevent context from being the part of key string
     ignore_args = set(ignore_args or [])
+    ignore_args.update(["ctx", "rctx", "_ctx", "_rctx", "request_context"])
     sig = inspect.signature(func)
     bound = sig.bind(*args, **kwargs)
     bound.apply_defaults()

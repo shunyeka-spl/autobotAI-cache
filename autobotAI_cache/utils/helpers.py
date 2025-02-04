@@ -36,9 +36,9 @@ def generate_scoped_context_key(arguments, scope: CacheScope = CacheScope.GLOBAL
         # If Organizational Scope return 'organization_root_user_id'
         # If User Scope return 'user_id'
         if scope == CacheScope.USER.value:
-            return context.user_context.user_id
+            return context.user_context.user.get('id')
         elif scope == CacheScope.ORGANIZATION.value:
             return CacheScope.ORGANIZATION.value + "_" + str(
-                context.user_context.root_user_id
+                context.user_context.root_user.get('id')
             )
     return None

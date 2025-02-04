@@ -41,7 +41,7 @@ def memoize(
             )
 
             if verbose:
-                print(f"Cache key: {cache_key}")
+                print(f"Cache Key Hash: {cache_key}")
 
             # Attempt to retrieve cached value
             try:
