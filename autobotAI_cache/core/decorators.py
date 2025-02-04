@@ -38,6 +38,7 @@ def memoize(
                 scope=scope,
                 key_prefix=key_prefix,
                 ignore_args=ignore_args,
+                verbose=verbose
             )
 
             if verbose:
