@@ -59,10 +59,18 @@ class MongoDBBackend(BaseBackend):
         doc = self._collection.find_one({"_id": key})
         if not doc:
             raise CacheMissError(f"Key '{key}' not found")
+        expire_at = doc.get("expire_at")
 
-        if doc.get("expire_at") and doc["expire_at"] < datetime.now(timezone.utc):
-            self._collection.delete_one({"_id": key})
-            raise CacheMissError(f"Key '{key}' expired")
+        if expire_at:
+            if (
+                isinstance(expire_at, datetime) and expire_at.tzinfo is None
+            ):
+                expire_at = expire_at.replace(
+                    tzinfo=timezone.utc
+                )
+            if expire_at < datetime.now(timezone.utc):
+                self._collection.delete_one({"_id": key})
+                raise CacheMissError(f"Key '{key}' expired")
 
         return doc["value"]
 
@@ -85,7 +93,7 @@ class MongoDBBackend(BaseBackend):
             self._enforce_max_entries()
 
     def _enforce_max_entries(self) -> None:
-        count = self.c_ollection.count_documents({})
+        count = self._collection.count_documents({})
         if count > self.max_entries:
             excess = count - self.max_entries
             oldest_docs = list(

@@ -6,6 +6,10 @@ class Config:
     def __init__(self):
         self._config = DEFAULT_CONFIG.copy()
         self._backend = None
+    
+    def reset(self):
+        self._config = DEFAULT_CONFIG.copy()
+        self._backend = None
 
     def configure(self, **kwargs):
         """Update configuration settings"""

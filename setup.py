@@ -10,9 +10,8 @@ setup(
     packages=find_packages(),
     install_requires=[
         "pymongo",
-        "redis",
-        "python-memcached",
-        "pydantic"
+        "pydantic",
+        "python-dotenv"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

@@ -1,5 +1,6 @@
 from autobotAI_cache.backends.base import BaseBackend
 from autobotAI_cache.backends.memory import MemoryBackend
+from autobotAI_cache.backends.mongo import MongoDBBackend
 
 
 class BackendRegistry:
@@ -10,7 +11,7 @@ class BackendRegistry:
     _backends = {
         "memory": MemoryBackend,
         # "redis": RedisBackend,
-        # "mongo": MongoBackend,
+        "mongo": MongoDBBackend,
         # Add more backends here
     }
 
