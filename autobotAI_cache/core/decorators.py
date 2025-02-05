@@ -14,6 +14,7 @@ def memoize(
     fail_silently: bool = False,
     scope: Optional[CacheScope] = CacheScope.GLOBAL.value,
     verbose: bool = False,
+    collection_name: Optional[str] = None
 ):
     """
     Memoization decorator that caches function results using configured backend
@@ -42,10 +43,18 @@ def memoize(
 
             if verbose:
                 print(f"Cache Key Hash: {cache_key}")
+            
+            cache_collection_name = (
+                collection_name
+                if collection_name is not None
+                else settings.DEFAULT_COLLECTION
+            )
 
             # Attempt to retrieve cached value
             try:
-                cached = settings.backend.get(cache_key)
+                cached = settings.backend.get(
+                    cache_key, collection_name=cache_collection_name
+                )
                 if cached is not None:
                     if verbose:
                         print(f"Cache hit for key: {cache_key}")
@@ -70,7 +79,7 @@ def memoize(
 
                 serialized = serialize(result, settings.SERIALIZER)
                 effective_ttl = ttl if ttl is not None else settings.DEFAULT_TTL
-                settings.backend.set(cache_key, serialized, ttl=effective_ttl)
+                settings.backend.set(cache_key, serialized, ttl=effective_ttl, collection_name=cache_collection_name)
                 
             except Exception as e:
                 if verbose:
