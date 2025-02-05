@@ -119,7 +119,6 @@ class TestInMemory:  # Use a class to group related tests
         assert all(r is not None for r in results) # check that function didn't return None
         settings.backend.clear(collection_name="cache_collection")
     
-
     def test_collection_name(self):
         @timeit_return
         @memoize(collection_name="my_cole")

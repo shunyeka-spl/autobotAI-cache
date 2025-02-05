@@ -150,3 +150,18 @@ class TestMongoMemory:  # Use a class to group related tests
             r is not None for r in results
         )  # check that function didn't return None
         settings.backend.clear()
+
+    def test_collection_name(self):
+        @timeit_return
+        @memoize(collection_name="my_cole")
+        def my_function():
+            time.sleep(2)  # Simulate some work
+            return "Hello, World!"
+
+        res, exc_time = my_function()
+        assert res == "Hello, World!"
+        assert exc_time == pytest.approx(2, abs=1)  # Allow some tolerance
+        res, exc_time = my_function()
+        assert res == "Hello, World!"
+        assert exc_time < 1  # Should be much faster (cached)
+        settings.backend.clear()

@@ -12,20 +12,17 @@ class MongoDBBackend(BaseBackend):
         self,
         mongo_client: MongoClient,
         db_name: str = "mongo_memoize",
-        collection_name: str = "cache_collection",
         max_entries: Optional[int] = None,
     ):
         if not self._is_client_active(mongo_client):
             raise ConnectionError("MongoDB client is not active.")
-
         self.mongo_client = mongo_client
         self.db_name = db_name
-        self.collection_name = collection_name
         self.max_entries = max_entries
-
         self._collection = None
         self._db = None
-        self._ensure_db_and_collection_and_indexes()
+
+        self._ensure_db()
 
     def _is_client_active(self, client: MongoClient) -> bool:
         try:
@@ -36,31 +33,33 @@ class MongoDBBackend(BaseBackend):
         except Exception as e:
             print(f"A unexpected error occured while checking connection {e}")
             return False
-
-    def _ensure_db_and_collection_and_indexes(self) -> None:
-        """Ensures the database, collection, and indexes exist."""
+    
+    def _ensure_db(self):
         if self.db_name not in self.mongo_client.list_database_names():
             self.mongo_client[self.db_name]
 
-        db = self.mongo_client[self.db_name]
-        if self.collection_name not in db.list_collection_names():
-            db.create_collection(self.collection_name)
+        self._db = self.mongo_client[self.db_name]
 
-        collection = db[self.collection_name]
+    def _ensure_collection_and_indexes(self, collection_name: str) -> None:
+        """Ensures the collection, and indexes exist."""
+        if collection_name not in self._db.list_collection_names():
+            self._db.create_collection(collection_name)
+
+        collection = self._db[collection_name]
         indexes = collection.index_information()
         if "expire_at_1" not in indexes:
             collection.create_index(
                 [("expire_at", pymongo.ASCENDING)], expireAfterSeconds=0
             )
         self._collection = collection
-        self._db = db
 
-    def get(self, key: str) -> Any:
+    def get(self, key: str, collection_name: str) -> Any:
+        self._ensure_collection_and_indexes(collection_name)
+
         doc = self._collection.find_one({"_id": key})
         if not doc:
             raise CacheMissError(f"Key '{key}' not found")
         expire_at = doc.get("expire_at")
-
         if expire_at:
             if (
                 isinstance(expire_at, datetime) and expire_at.tzinfo is None
@@ -74,7 +73,9 @@ class MongoDBBackend(BaseBackend):
 
         return doc["value"]
 
-    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    def set(self, key: str, value: Any, ttl: Optional[int] = None, collection_name: str = None) -> None:
+        self._ensure_collection_and_indexes(collection_name)
+
         now = datetime.now(timezone.utc)
         expire_at = now + timedelta(seconds=ttl) if ttl is not None else None
 
@@ -107,10 +108,14 @@ class MongoDBBackend(BaseBackend):
                     {"_id": {"$in": oldest_ids}}
                 )  # Delete in bulk
 
-    def delete(self, key: str) -> None:
+    def delete(self, key: str, collection_name: str) -> None:
+        self._collection = self._db[collection_name]
         result = self._collection.delete_one({"_id": key})
         if result.deleted_count == 0:
             raise CacheMissError(f"Key '{key}' not found")
 
-    def clear(self) -> None:
-        self._collection.delete_many({})
+    def clear(self, collection_name: str = None) -> None:
+        if collection_name:
+            self._db.drop_collection(collection_name)
+        else:
+            self.mongo_client.drop_database(self.db_name)
