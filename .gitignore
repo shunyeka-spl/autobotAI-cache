@@ -20,6 +20,10 @@ ENV/
 .venv/
 .VENV/
 
+# Environment Variables
+.env
+.venv
+
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
 
