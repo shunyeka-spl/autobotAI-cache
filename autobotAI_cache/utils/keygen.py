@@ -1,19 +1,26 @@
 import hashlib
 import inspect
-import traceback
 
 from autobotAI_cache.core.models import CacheScope
 from autobotAI_cache.utils.helpers import generate_scoped_context_key
 
 
-def generate_cache_key(func, args, kwargs, scope=CacheScope.GLOBAL.value, key_prefix=None, ignore_args=None, verbose=False):
+def generate_cache_key(
+    func,
+    args,
+    kwargs,
+    scope=CacheScope.ORGANIZATION.value,
+    key_prefix=None,
+    ignore_args=None,
+    verbose=False,
+):
     """
     Generates a unique cache key based on the function, arguments, and keyword arguments.
 
     :param func: The function being memoized
     :param args: Positional arguments passed to the function
     :param kwargs: Keyword arguments passed to the function
-    :param scope: Scope level of generated key, default CacheScope.GLOBAL.value
+    :param scope: Scope level of generated key, default CacheScope.ORGANIZATION.value
     :param key_prefix: Optional prefix for the cache key
     :param ignore_args: List of argument names to exclude from key generation
     :return: The generated cache key
@@ -21,21 +28,10 @@ def generate_cache_key(func, args, kwargs, scope=CacheScope.GLOBAL.value, key_pr
     # Preevent context from being the part of key string
     ignore_args = set(ignore_args or [])
     ignore_args.update(["ctx", "rctx", "_ctx", "_rctx", "request_context"])
-    sig = inspect.signature(func)
-    bound = sig.bind(*args, **kwargs)
+    bound = inspect.signature(func).bind(*args, **kwargs)
     bound.apply_defaults()
 
     key_components = []
-
-    # scoped_context_key refers to user_id, root_user_id or global
-    try:
-        scoped_context_key = generate_scoped_context_key(bound.arguments, scope=scope)
-        key_components.append(f"scope={scoped_context_key}")
-    except Exception as e:
-        if verbose:
-            print("Error in generating scoped context key: ", e)
-            traceback.print_exc()
-
     # Handle self/cls intelligently
     if "self" in bound.arguments and "self" not in ignore_args:
         key_components.append(f"self_id={id(bound.arguments['self'])}")
@@ -61,7 +57,7 @@ def generate_cache_key(func, args, kwargs, scope=CacheScope.GLOBAL.value, key_pr
 
     key_str = f"{key_prefix or ''}{func_qualname}:{arg_str}_{key_components_str}"
 
-    if verbose:
-        print("Generated Key String: ", key_str)
+    # scoped_context_key refers to user_id, root_user_id or global
+    scoped_context_key = generate_scoped_context_key(bound.arguments, scope=scope)
 
-    return hashlib.sha256(key_str.encode()).hexdigest()
+    return f"{scoped_context_key}:{hashlib.sha256(key_str.encode()).hexdigest()}"

@@ -2,14 +2,15 @@ import pytest  # type: ignore
 from autobotAI_cache.core.config import settings  # noqa: F401
 from autobotAI_cache.core.decorators import memoize
 import time
-from helpers import timeit_return
+from autobotAI_cache.core.models import CacheScope
+from helpers import RequestContext, UserContext, timeit_return
 import threading
 
 
 class TestInMemory:  # Use a class to group related tests
     def test_basic(self):
         @timeit_return
-        @memoize()
+        @memoize(fail_silently=False, verbose=True)
         def my_function():
             time.sleep(2)  # Simulate some work
             return "Hello, World!"
@@ -38,19 +39,20 @@ class TestInMemory:  # Use a class to group related tests
         time.sleep(1.5)  # Wait for TTL to expire
         res, exc_time = my_function()  # Should compute again
         assert res == "Hello"
-        assert exc_time > 1 # should take more time than cached
+        assert exc_time > 1  # should take more time than cached
         settings.backend.clear()
 
     def test_capacity(self):
-        settings.configure(BACKEND="memory",BACKEND_OPTIONS={
-            "max_entries": 2
-        }, DEFAULT_TTL=1200)
+        settings.configure(
+            BACKEND="memory", BACKEND_OPTIONS={"max_entries": 2}, DEFAULT_TTL=1200
+        )
+
         @timeit_return
         @memoize()
         def my_function(x):
             time.sleep(2)  # Simulate some work
             return x * 2
-        
+
         res, exc_time = my_function(1)
         assert res == 2
         assert exc_time > 1
@@ -116,12 +118,14 @@ class TestInMemory:  # Use a class to group related tests
         # Basic check - you might want more specific assertions depending on your concurrency requirements.
         assert len(results) == num_threads * num_operations
         # Check for exceptions (add more detailed checks as needed)
-        assert all(r is not None for r in results) # check that function didn't return None
+        assert all(
+            r is not None for r in results
+        )  # check that function didn't return None
         settings.backend.clear(collection_name="cache_collection")
-    
+
     def test_collection_name(self):
         @timeit_return
-        @memoize(collection_name="my_cole")
+        @memoize(collection_name="my_coll")
         def my_function():
             time.sleep(2)  # Simulate some work
             return "Hello, World!"
@@ -133,3 +137,56 @@ class TestInMemory:  # Use a class to group related tests
         assert res == "Hello, World!"
         assert exc_time < 1  # Should be much faster (cached)
         settings.backend.clear()
+
+    def test_multitenet(self):
+        @timeit_return
+        @memoize(collection_name="my_cole", scope=CacheScope.USER.value, verbose=True)
+        def my_function(ctx):
+            print("\n Running funtion")
+            return "Hello, World!"
+
+        # Root user context tenet 1
+        ctx1 = RequestContext(
+            config={},
+            user_context=UserContext(
+                is_root=True, root_user={"id": "ritin@gmail.com"}, user={"id": "ritin@gmail.com"}
+            )
+        )
+
+        subctx1 = RequestContext(
+            config={},
+            user_context=UserContext(
+                is_root=False, root_user={"id": "ritin@gmail.com"}, user={"id": "sub_ritin@gmail.com"}
+            )
+        )
+
+        # Root user context tenet 2
+        ctx2 = RequestContext(
+            config={},
+            user_context=UserContext(
+                is_root=True, root_user={"id": "ritik@gmail.com"}, user={"id": "ritik@gmail.com"}
+            )
+        )
+
+        subctx2 = RequestContext(
+            config={},
+            user_context=UserContext(
+                is_root=False, root_user={"id": "ritik@gmail.com"}, user={"id": "sub_ritik@gmail.com"}
+            )
+        )
+
+        res, time_tool = my_function(ctx1)
+        res, time_tool = my_function(ctx2)
+        res, time_tool = my_function(subctx1)
+        res, time_tool = my_function(subctx2)
+        settings.backend.clear(collection_name='my_cole', context=subctx1,  scope=CacheScope.ORGANIZATION.value)
+        
+    def test_fail_silently(self):
+        @memoize(collection_name="my_cole", scope=CacheScope.GLOBAL.value)
+        def my_function():
+            print("\n Running Fail funtion")
+            return 8/1
+        
+        res = my_function()
+        assert res == 8
+        settings.backend.clear(collection_name='my_cole', scope=CacheScope.GLOBAL.value)

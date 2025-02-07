@@ -1,4 +1,7 @@
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel
 
 class CacheScope(str, Enum):
     USER = "user" # Cache will differ by user id 
@@ -7,3 +10,8 @@ class CacheScope(str, Enum):
 
     def __str__(self):
         return self.value
+
+class UserContext(BaseModel):
+    is_root: bool = False
+    root_user: Optional[dict] = None
+    user: Optional[dict] = None
