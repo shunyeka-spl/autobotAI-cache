@@ -5,6 +5,7 @@ from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 from autobotAI_cache.backends.base import BaseBackend
 from autobotAI_cache.core.exceptions import CacheMissError
+from autobotAI_cache.core.models import CacheScope, UserContext
 
 
 class MongoDBBackend(BaseBackend):
@@ -114,7 +115,12 @@ class MongoDBBackend(BaseBackend):
         if result.deleted_count == 0:
             raise CacheMissError(f"Key '{key}' not found")
 
-    def clear(self, collection_name: str = None) -> None:
+    def clear(
+        self,
+        collection_name: str = None,
+        context: Optional[UserContext] = None,
+        scope: CacheScope = CacheScope.ORGANIZATION.value,
+    ) -> None:
         if collection_name:
             self._db.drop_collection(collection_name)
         else:

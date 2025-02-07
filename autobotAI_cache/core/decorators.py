@@ -68,7 +68,9 @@ def memoize(
                     )
                     if cached is not None:
                         if verbose:
-                            logger.info(f"Cache hit for key: {cache_key}")
+                            logger.info(
+                                f"Cache ({settings.backend_name}) hit for key: {cache_key}"
+                            )
                         return deserialize(cached, settings.SERIALIZER)
                 
                 except CacheMissError:
@@ -95,7 +97,9 @@ def memoize(
                     )
                     
                     if verbose:
-                        logger.info(f"Successfully cached result with key: {cache_key}")
+                        logger.info(
+                            f"Successfully cached ({settings.backend_name}) result with key : {cache_key}"
+                        )
                 
                 except (CacheBackendError, SerializationError) as e:
                     if verbose:

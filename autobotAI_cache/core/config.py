@@ -30,6 +30,11 @@ class Config:
             backend_cls = BackendRegistry.get_backend(backend_name)
             self._backend = backend_cls(**self._config.get("BACKEND_OPTIONS", {}))
         return self._backend
+    
+    @property
+    def backend_name(self):
+        """Name of the backend"""
+        return self._config["BACKEND"]
 
 
 # Global configuration instance
