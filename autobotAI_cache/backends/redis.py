@@ -1,69 +1,93 @@
 import redis
-from typing import Optional
-
+from datetime import timedelta
+from typing import Optional, Any
 from autobotAI_cache.backends.base import BaseBackend
+from autobotAI_cache.core.exceptions import CacheMissError
 from autobotAI_cache.core.models import CacheScope, UserContext
+from autobotAI_cache.utils.helpers import get_context_scope_string
 
 
 class RedisBackend(BaseBackend):
-    def __init__(self, host="localhost", port=6379, db=0, **kwargs):
+    def __init__(
+        self,
+        host="localhost",
+        port=6379,
+        db=0,
+        max_entries: Optional[int] = None,
+        **kwargs,
+    ):
         """Initialize Redis client"""
         self.client = redis.Redis(host=host, port=port, db=db, **kwargs)
+        self.max_entries = max_entries
 
-    def get(self, key: str):
+    def get(self, key: str, collection_name: str) -> bytes:
         """Get a value from cache by key"""
-        return self.client.get(key)
+        namespaced_key = self._get_namespaced_key(key, collection_name)
+        value = self.client.get(namespaced_key)
+        if value is None:
+            raise CacheMissError(
+                f"Key '{key}' not found in collection '{collection_name}'"
+            )
+        return value
 
-    def set(self, key: str, value, ttl: int = None):
+    def set(self, key: str, value: Any, collection_name: str, ttl: int = None) -> None:
         """Set a value in cache with optional TTL"""
-        if ttl is not None:
-            self.client.setex(key, ttl, value)
+        namespaced_key = self._get_namespaced_key(key, collection_name)
+        # Set with or without TTL based on the provided value
+        if ttl:
+            self.client.setex(namespaced_key, timedelta(seconds=ttl), value)
         else:
-            self.client.set(key, value)
+            self.client.set(namespaced_key, value)
 
-    def delete(self, key: str):
+        # Enforce max_entries limit if specified
+        if self.max_entries is not None:
+            self._enforce_max_entries(collection_name)
+
+    def delete(self, key: str, collection_name: str) -> None:
         """Delete a value from cache by key"""
-        self.client.delete(key)
+        namespaced_key = self._get_namespaced_key(key, collection_name)
+        result = self.client.delete(namespaced_key)
+        if result == 0:
+            raise CacheMissError(
+                f"Key '{key}' not found in collection '{collection_name}'"
+            )
 
     def clear(
         self,
         collection_name: str = None,
         context: Optional[UserContext] = None,
-        scope: CacheScope = CacheScope.ORGANIZATION.value
+        scope: CacheScope = CacheScope.ORGANIZATION.value,
     ) -> None:
-        """Clear cache entries based on collection name and context
-
-        Args:
-            collection_name: Optional collection/prefix to filter keys by
-            context: UserContext containing user and root_user string IDs
-            scope: CacheScope determining which context attribute to use
-        """
-        # If no context provided, clear everything matching collection
-        if context is None:
-            pattern = f"{collection_name}:*" if collection_name else "*"
-            self._delete_by_pattern(pattern)
-            return
-
-        # Build pattern based on scope and context
-        if scope == CacheScope.GLOBAL.value:
-            pattern = f"{collection_name}:global:*" if collection_name else "global:*"
-        elif scope == CacheScope.ORGANIZATION.value and context.root_user:
-            # Use root_user string ID for organization scope
-            pattern = f"{collection_name}:{context.root_user}:*" if collection_name else f"{context.root_user}:*"
-        elif scope == CacheScope.USER.value and context.user:
-            # Use user string ID for user scope
-            pattern = f"{collection_name}:{context.user}:*" if collection_name else f"{context.user}:*"
+        """Clear the cache for a specific collection and scope"""
+        pattern = self._get_namespaced_pattern(collection_name, context, scope)
+        keys = self.client.keys(pattern)
+        if keys:
+            self.client.delete(*keys)
+            print(f"Cache cleared for pattern: {pattern}")
         else:
-            return
+            print(f"No matching keys found for pattern: {pattern}")
 
-        self._delete_by_pattern(pattern)
+    def _get_namespaced_key(self, key: str, collection_name: str) -> str:
+        """Generate a namespaced key for Redis storage"""
+        return f"{collection_name}:{key}"
 
-    def _delete_by_pattern(self, pattern: str) -> None:
-        """Helper method to delete keys matching a pattern"""
-        cursor = 0
-        while True:
-            cursor, keys = self.client.scan(cursor, match=pattern)
-            for key in keys:
-                self.client.delete(key)
-            if cursor == 0:
-                break
+    def _get_namespaced_pattern(
+        self, collection_name: str, context: Optional[UserContext], scope: CacheScope
+    ) -> str:
+        """Generate a pattern to match keys for clearing the cache"""
+        if collection_name is None:
+            collection_name = "*"
+        scope_str = get_context_scope_string(context, scope).strip(":") if context else "*"
+        scope_str = scope_str.strip(":")
+        return f"{collection_name}:{scope_str}:*"
+
+    def _enforce_max_entries(self, collection_name: str) -> None:
+        """Enforce the max_entries limit by removing the oldest entries"""
+        keys_pattern = f"{collection_name}:*"
+        keys = self.client.keys(keys_pattern)
+        if len(keys) > self.max_entries:
+            sorted_keys = sorted(keys, key=lambda k: self.client.ttl(k) or float("inf"))
+            excess = len(sorted_keys) - self.max_entries
+            keys_to_remove = sorted_keys[:excess]
+            if keys_to_remove:
+                self.client.delete(*keys_to_remove)
