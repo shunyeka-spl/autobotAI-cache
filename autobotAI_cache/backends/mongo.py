@@ -6,6 +6,7 @@ from pymongo.errors import ConnectionFailure
 from autobotAI_cache.backends.base import BaseBackend
 from autobotAI_cache.core.exceptions import CacheMissError
 from autobotAI_cache.core.models import CacheScope, UserContext
+from autobotAI_cache.utils.helpers import get_context_scope_string
 
 
 class MongoDBBackend(BaseBackend):
@@ -56,7 +57,7 @@ class MongoDBBackend(BaseBackend):
                     collection.name,
                     capped=True,
                     size=self.max_entries * 1024,  # Size in bytes
-                    max=self.max_entries
+                    max=self.max_entries,
                 )
 
         # Ensure all required indexes exist
@@ -86,8 +87,13 @@ class MongoDBBackend(BaseBackend):
             return parts[2], parts[0], parts[1], CacheScope.USER
         elif len(parts) == 2:
             if parts[0] == CacheScope.GLOBAL.value:  # global:key_hash
-                return parts[1], None, None, CacheScope.GLOBAL 
-            return parts[1], parts[0], None, CacheScope.ORGANIZATION  # root_user_id::key_hash
+                return parts[1], None, None, CacheScope.GLOBAL
+            return (
+                parts[1],
+                parts[0],
+                None,
+                CacheScope.ORGANIZATION,
+            )  # root_user_id::key_hash
 
     def get(self, key: str, collection_name: str) -> Any:
         self._ensure_collection_and_indexes(collection_name)
@@ -210,37 +216,18 @@ class MongoDBBackend(BaseBackend):
         self,
         collection_name: str = None,
         context: Optional[UserContext] = None,
-        scope: CacheScope = CacheScope.ORGANIZATION
+        scope: CacheScope = CacheScope.ORGANIZATION,
     ) -> None:
-        if collection_name:
-            self._ensure_collection_and_indexes(collection_name)
-
-            # Build query based on scope and context
-            query = {"scope": scope.value}
-
-            if scope == CacheScope.GLOBAL:
-                # Delete all global cache entries
-                pass  # query already set correctly
-            elif context and scope == CacheScope.ORGANIZATION:
-                # Delete all cache entries for the organization
-                query["root_user_id"] = context.root_user_id
-            elif context and scope == CacheScope.USER:
-                # Delete all cache entries for specific user
-                query.update(
-                    {"root_user_id": context.root_user_id, "user_id": context.user_id}
-                )
-
-            try:
-                self._collection.delete_many(query)
-
-            except pymongo.errors.PyMongoError as e:
-                # Handle MongoDB exceptions
-                print(f"Error clearing cache: {e}")
-        else:
-            # If no collection specified, drop entire database
-            try:
-                print("Dropping database")
-                self.mongo_client.drop_database(self.db_name)
-            except pymongo.errors.PyMongoError as e:
-                # Handle MongoDB exceptions
-                print(f"Error dropping database: {e}")
+        context_scope_str = get_context_scope_string(context, scope)
+        collections = [collection_name] if collection_name else self._db.list_collection_names()
+        for collection in collections:
+            query = {}
+            if scope == CacheScope.ORGANIZATION:
+                query["root_user_id"] = context_scope_str.split(":")[0]
+            elif scope == CacheScope.USER:
+                query["root_user_id"] = context_scope_str.split(":")[0]
+                query["user_id"] = context_scope_str.split(":")[1]
+            
+            self._collection = self._db[collection]
+            self._collection.delete_many(query)
+            print(f"Cache cleared for collection: {collection}")
