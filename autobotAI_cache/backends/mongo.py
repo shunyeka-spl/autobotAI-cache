@@ -64,7 +64,6 @@ class MongoDBBackend(BaseBackend):
         collection.create_index(
             [
                 ("key_hash", pymongo.ASCENDING),
-                ("scope", pymongo.ASCENDING),
                 ("root_user_id", pymongo.ASCENDING),
                 ("user_id", pymongo.ASCENDING),
             ],
@@ -102,17 +101,16 @@ class MongoDBBackend(BaseBackend):
 
         query = {"key_hash": key_hash}
         if scope == CacheScope.GLOBAL:
-            query["scope"] = CacheScope.GLOBAL.value
+            pass
         elif scope == CacheScope.ORGANIZATION:
             query.update(
-                {"root_user_id": root_user_id, "scope": CacheScope.ORGANIZATION.value}
+                {"root_user_id": root_user_id}
             )
         else:  # USER scope
             query.update(
                 {
                     "root_user_id": root_user_id,
-                    "user_id": user_id,
-                    "scope": CacheScope.USER.value,
+                    "user_id": user_id
                 }
             )
 
@@ -150,7 +148,6 @@ class MongoDBBackend(BaseBackend):
             "value": value,
             "created_at": now,
             "expire_at": expire_at,
-            "scope": scope.value,
         }
         if root_user_id:
             document["root_user_id"] = root_user_id
@@ -194,17 +191,16 @@ class MongoDBBackend(BaseBackend):
 
         query = {"key_hash": key_hash}
         if scope == CacheScope.GLOBAL:
-            query["scope"] = CacheScope.GLOBAL.value
+            pass
         elif scope == CacheScope.ORGANIZATION:
             query.update(
-                {"root_user_id": root_user_id, "scope": CacheScope.ORGANIZATION.value}
+                {"root_user_id": root_user_id}
             )
         else:  # USER scope
             query.update(
                 {
                     "root_user_id": root_user_id,
                     "user_id": user_id,
-                    "scope": CacheScope.USER.value,
                 }
             )
 
