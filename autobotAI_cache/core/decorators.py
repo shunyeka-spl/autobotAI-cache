@@ -24,7 +24,7 @@ def memoize(
     key_prefix: Optional[str] = None,
     ignore_args: Optional[List[str]] = None,
     fail_silently: bool = False,
-    scope: str = CacheScope.GLOBAL.value,
+    scope: str = CacheScope.ORGANIZATION.value,
     verbose: bool = False,
     collection_name: Optional[str] = None,
 ):
