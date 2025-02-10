@@ -6,8 +6,6 @@ import time
 from autobotAI_cache.core.models import CacheScope
 from helpers import RequestContext, UserContext, timeit_return
 import threading
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
 
 
@@ -48,7 +46,7 @@ class TestRedisMemory:  # Use a class to group related tests
 
         res, exc_time = my_function()
         assert res == "Hello, World!"
-        assert exc_time == pytest.approx(2, abs=1)  # Allow some tolerance
+        assert exc_time > 2 # Allow some tolerance
         res, exc_time = my_function()
         assert res == "Hello, World!"
         assert exc_time < 1  # Should be much faster (cached)
