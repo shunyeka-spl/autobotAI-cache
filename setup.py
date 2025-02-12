@@ -11,7 +11,8 @@ setup(
     install_requires=[
         "pymongo",
         "pydantic",
-        "python-dotenv"
+        "python-dotenv",
+        "redis"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
