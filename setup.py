@@ -1,24 +1,21 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="autobotAI-cache",
-    version="0.1.0",
+    name="autobotAI_cache",  # Use lowercase for package name on PyPI
+    version="1.0.0",
     description="A flexible and efficient caching library with support for multiple backends",
-    author="Ritin Tiwari",
-    author_email="ritintiwari417@gmail.com",
-    url="https://github.com/ritin0204/autobot_cache",
+    author="ShunyEka Systems Private Limited",
+    author_email="hello@shunyeka.com",
     packages=find_packages(),
     install_requires=[
         "pymongo",
         "pydantic",
         "python-dotenv",
-        "redis"
+        "redis",
     ],
     classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
+        "License :: Other/Proprietary License" "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3.10",
     ],
     python_requires=">=3.11",
 )
-
