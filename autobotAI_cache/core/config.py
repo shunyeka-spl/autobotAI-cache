@@ -34,7 +34,7 @@ class Config:
     @property
     def backend_name(self):
         """Name of the backend"""
-        return self._config["BACKEND"]
+        return self._config["BACKEND"].capitalize()
 
 
 # Global configuration instance

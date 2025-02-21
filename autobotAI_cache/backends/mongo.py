@@ -211,7 +211,7 @@ class MongoDBBackend(BaseBackend):
     def clear(
         self,
         collection_name: str = None,
-        context: Optional[UserContext] = None,
+        context = None,
         scope: CacheScope = CacheScope.ORGANIZATION,
     ) -> None:
         context_scope_str = get_context_scope_string(context, scope)
